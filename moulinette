@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+
+
+# Imports
+
+import os
+import glob
+
+
+# Class
+
+class Core:
+    def __init__(self):
+        self.files = []
+
+class Mark:
+    def __init__(self):
+        self.nberr = 0
+        self.errlog = []
+
+# Core
+
+def fill_files_list(data):
+    for file in glob.glob("./*.c"):
+        data.files.append(file)
+    for path, dirs, files in os.walk('./'):
+        for d in dirs:
+            for f in glob.iglob(os.path.join(path, d, '*.c')):
+                data.files.append(f)
+
+
+def check_header(mark, content, file):
+    err = 0
+    header = []
+
+    if len(content) <= 6:
+        return
+    for i in range(1, 5):
+        header.append(content[i])
+    if content[0] != "/*\n" or content[5] != "*/\n":
+        err = 1
+    for c in header:
+        if len(c) <= 4:
+            err = 1
+    if err == 1:
+        mark.errlog.append('[' + file + '] Wrong header format.')
+
+
+def check_includes(mark, content, file):
+    includes = []
+    a = 0
+    b = 0
+    for i in range(6, len(content)):
+        line = content[i].split(' ')
+        if (line[0] == "#include"):
+            includes.append(content[i])
+    for inc in includes:
+        if (inc[9] == '<'):
+            a = 1
+        if (inc[9] == '"'):
+            b = 1
+    if (a == 1 and b == 1):
+        if (includes[len(includes) - 1][9] != '"'):
+            mark.errlog.append('[' + file + '] Wrong includes order.')
+
+
+def check_prototypes(mark, tab):
+    print("", end="")
+
+
+def check_function(mark, content, file):
+    inFunc = 0
+    lenLine = 0
+    funcProto = []
+    for i in range(0, len(content)):
+        if inFunc == 0:
+            func = []
+        if content[i] == "{\n":
+            lenLine = 0
+            funcProto.append(content[i - 1])
+            inFunc = 1
+        while inFunc == 1:
+            if content[i] == "}\n":
+                inFunc = 0
+            for c in content[i]:
+                if c == '\t':
+                    lenLine += 8
+            tot = lenLine + len(content[i])
+            i += 1
+    check_prototypes(mark, funcProto)
+
+def check_file(mark, file):
+    with open(file) as f:
+        content = f.readlines()
+    check_header(mark, content, file)
+    check_includes(mark, content, file)
+    check_function(mark, content, file)
+
+def core():
+    data = Core()
+    mark = Mark()
+    fill_files_list(data)
+    for files in data.files:
+        check_file(mark, files)
+    for content in mark.errlog:
+        print(content)
+
+if __name__ == '__main__':
+    core()
